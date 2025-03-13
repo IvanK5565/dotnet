@@ -1,54 +1,60 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Threading;
-
-class Program
+namespace ConsoleThread
 {
-    private static double sum = 0;
-    private static object lockObject = new object();
-
-    static void ComputePartialSum(int start, int end)
+    // Клас передачі параметрів в потік
+    class SeriesParams
     {
-        double localSum = 0;
-        for (int i = start; i <= end; i++)
+        public int begin, end;
+        public SeriesParams(int b, int e)
         {
-            localSum += (double)i / (1 + i * Math.Pow(4, i));
-        }
-
-        lock (lockObject)
-        {
-            sum += localSum;
+            begin = b;
+            end = e;
         }
     }
-
-    static void Main()
+    class Program
     {
-        int n = 10000; // Количество членов ряда
-        int[] threadCounts = { 1, 3, 5, 7, 9, 11 }; // Количество потоков для тестирования
-
-        foreach (int threadCount in threadCounts)
+        public static Mutex mutex = new Mutex(); // Створення мьютексу
+        public static int NumThread = 8; // Кількість потоків
+        public static double Sum = 0; // Підсумкова сума
+        public static int[] tests = {1,3,5,7,9,11};
+        static void Main(string[] args)
         {
-            sum = 0; // Сбрасываем сумму перед каждым запуском
-            Thread[] threads = new Thread[threadCount];
-            int chunkSize = n / threadCount;
-            Stopwatch stopwatch = new Stopwatch();
-
-            stopwatch.Start();
-            for (int t = 0; t < threadCount; t++)
+            for (int test = 0; test < tests.Length; test++)
             {
-                int start = t * chunkSize;
-                int end = (t == threadCount - 1) ? n : (start + chunkSize - 1);
-                threads[t] = new Thread(() => ComputePartialSum(start, end));
-                threads[t].Start();
+                Sum = 0;
+                NumThread = tests[test];
+                Stopwatch stopwatch = new Stopwatch();
+                stopwatch.Start();
+                Thread[] thr = new Thread[NumThread];
+                var MaxIter = 10000000; // Загальна кількість ітерацій
+                var step = MaxIter / NumThread; // Кількість ітерацій у потоці
+                for (int i = 0; i < NumThread; i++) // Запуск потоків
+                {
+                    thr[i] = new Thread(new ParameterizedThreadStart(CalcSeries)); // Створення i-го потоку
+                                                                                   // Запуск потоку та передача в нього параметрів
+                    thr[i].Start(new SeriesParams(i * step, (i == NumThread - 1) ? MaxIter : (i + 1) * step));
+                }
+                for (int i = 0; i < NumThread; i++) // Очікування завершення потоків
+                    thr[i].Join();
+                stopwatch.Stop();
+                Console.WriteLine("Num of threads: {0}, Sum of series: {1} in {2} milliseconds", NumThread, Sum, stopwatch.ElapsedMilliseconds);
             }
-
-            foreach (var thread in threads)
+                Console.ReadKey();
+        }
+        // Обчислення суми ряду для заданого діапазону ітерацій
+        public static void CalcSeries(object param)
+        {
+            double sum = 0;
+            if (param is SeriesParams)
             {
-                thread.Join();
+                for (double i = ((SeriesParams)param).begin; i < ((SeriesParams)param).end; i++)
+                    sum += (1.0 / (1 + i * i * i));
+                mutex.WaitOne(); // Закрити м'ютекс
+                Sum += sum; // Змінити ресурс, за який може виникнути гонка
+                mutex.ReleaseMutex(); // Звільнити м'ютекс
             }
-            stopwatch.Stop();
-
-            Console.WriteLine($"Потоки: {threadCount}, Время: {stopwatch.ElapsedMilliseconds} мс, Сумма: {sum}");
         }
     }
 }

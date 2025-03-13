@@ -20,13 +20,13 @@
         fe4_2.Print();
 
         Console.WriteLine("\nКуб:");
-        double[,] cube = { { 0, 0, 0 }, { 10, 0, 0 }, { 0, 10, 0 }, { 10, 10, 0 },
-                           { 0, 0, 10 }, { 10, 0, 10 }, { 0, 10, 10 }, { 10, 10, 10 }};
+        double[,] cube = { { 0, 0, 0 }, { 1, 0, 0 }, { 0, 1, 0 }, { 1, 1, 0 },
+                           { 0, 0, 1 }, { 1, 0, 1 }, { 0, 1, 1 }, { 1, 1, 1 }};
         ShapeCube fe8 = new ShapeCube(cube);
         fe8.Print();
 
         Console.WriteLine("\nКвадратичний трикутник:");
-        double[,] triangle6 = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0.5, 0 }, { 1, 0.5 }, { 0.5, 0.5 } };
+        double[,] triangle6 = { { 0, 0 }, { 4, 0 }, { 2, 3 }, { 1, 1.5 }, { 3, 1.5 }, { 2, 0 } };
         ShapeTriangleQuadratic fe6 = new ShapeTriangleQuadratic(triangle6);
         fe6.Print();    
 
@@ -195,18 +195,36 @@ class ShapeCube : ShapeFunction
     }
     public ShapeCube(double[,] px)
     {
-        Size = 4;
+        Size = 8;
         Dim = 3;
         SetCoord(Size, px);
     }
     protected override double ShapeCoeff(int i, int j)
     {
-        double[] s = { 1.0, X[i, 0], X[i, 1], X[i, 2] };
+        double x = X[i, 0]; // Координата X узла i
+        double y = X[i, 1]; // Координата Y узла i
+        double z = X[i, 2]; // Координата Z узла i
+
+
+        double[] s = {
+        1.0,  // Свободный член
+        x,    // Линейные члены
+        y,
+        z,
+        x * y, // Попарные произведения
+        x * z,
+        y * z,
+        x * y * z // Тройное произведение
+    };
+
+        if (j >= s.Length)
+            return 0.0; // Предотвращаем выход за границы
+
         return s[j];
     }
 }
 
-class ShapeTriangleQuadratic : ShapeCube
+class ShapeTriangleQuadratic : ShapeFunction
 {
     public ShapeTriangleQuadratic()
     {
